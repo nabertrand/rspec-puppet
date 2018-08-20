@@ -42,7 +42,7 @@ else
   gem 'rubocop-rspec', '~> 1.6' if (RUBY_VERSION >= '2.3.0' || RUBY_VERSION >= '23')
 end
 
-if ENV['COVERAGE'] == 'yes'
+if ENV['COVERAGE']
   gem 'coveralls', :require => false
   gem 'simplecov', :require => false
 end

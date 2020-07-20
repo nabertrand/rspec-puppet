@@ -132,6 +132,16 @@ module Puppet
   end
 
   module Util
+    # Fix for removal of default_env function
+    # Bug: https://github.com/rodjek/rspec-puppet/issues/796
+    # Upstream: https://github.com/puppetlabs/puppet/commit/94df3c1a3992d89b2d7d5db8a70373c135bdd86b
+    if !respond_to?(:default_env)
+      def default_env()
+        DEFAULT_ENV
+      end
+      module_function :default_env
+    end
+
     if respond_to?(:get_env)
       alias :old_get_env :get_env
       module_function :old_get_env
@@ -322,6 +332,24 @@ class Pathname
       else
         old_chop_basename.bind(self).call(path)
       end
+    end
+  end
+end
+
+# Puppet loads init.pp, then foo.pp, to find class "mod::foo".  If
+# class "mod" has been mocked using pre_condition when testing
+# "mod::foo", this causes duplicate declaration for "mod".
+# This monkey patch only loads "init.pp" if "foo.pp" does not exist.
+class Puppet::Module
+  if [:match_manifests, 'match_manifests'].any? { |r| instance_methods.include?(r) }
+    old_match_manifests = instance_method(:match_manifests)
+
+    define_method(:match_manifests) do |rest|
+      result = old_match_manifests.bind(self).call(rest)
+      if result.length > 1 && File.basename(result[0]) == 'init.pp'
+        result.shift
+      end
+      result
     end
   end
 end

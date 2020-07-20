@@ -2,7 +2,7 @@ source ENV['GEM_SOURCE'] || "https://rubygems.org"
 
 def location_for(place, fake_version = nil)
   if place =~ /^((?:git|https?)[:@][^#]*)#(.*)/
-    [fake_version, { :git => $1, :branch => $2, :require => false }].compact
+    [fake_version, { :git => $1, :branch => $2, :require => false, :submodules => true }].compact
   elsif place =~ /^file:\/\/(.*)/
     ['>= 0', { :path => File.expand_path($1), :require => false }]
   else
@@ -40,6 +40,7 @@ elsif RUBY_VERSION =~ /^1\.?8/
 else
   gem 'rubocop'
   gem 'rubocop-rspec', '~> 1.6' if (RUBY_VERSION >= '2.3.0' || RUBY_VERSION >= '23')
+  gem 'sync' if (RUBY_VERSION >= '2.7.0')
 end
 
 if ENV['COVERAGE'] == 'yes'

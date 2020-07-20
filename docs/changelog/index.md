@@ -4,6 +4,73 @@ title: Change Log
 icon: fa fa-history
 ---
 
+## 2.7.9
+
+<a href="https://github.com/rodjek/rspec-puppet/compare/v2.7.8...v2.7.9"
+class="btn btn-primary btn-inline pull-right">View Diff</a>
+
+### Fixed
+ * Fix issues with removal of `default_env` method in Puppet 6.17.0.
+
+## 2.7.8
+
+<a href="https://github.com/rodjek/rspec-puppet/compare/v2.7.7...v2.7.8"
+class="btn btn-primary btn-inline pull-right">View Diff</a>
+
+### Fixed
+ * Fix cross-platform testing for Puppet >= 6.9.0 when there is no `ipaddress6`
+   fact defined.
+
+## 2.7.7
+
+<a href="https://github.com/rodjek/rspec-puppet/compare/v2.7.6...v2.7.7"
+class="btn btn-primary btn-inline pull-right">View Diff</a>
+
+### Fixed
+ * Fix the support for rspec-expectations >= 3.8.5.
+
+### Changed
+ * Remove the rspec-expectations dependency limit introduced in 2.7.6.
+
+## 2.7.6
+
+<a href="https://github.com/rodjek/rspec-puppet/compare/v2.7.5...v2.7.6"
+class="btn btn-primary btn-inline pull-right">View Diff</a>
+
+### Changed
+ * Limit rspec-expectations dependency to < 3.8.5 due to an incompatible
+   change.
+
+## 2.7.5
+
+<a href="https://github.com/rodjek/rspec-puppet/compare/v2.7.4...v2.7.5"
+class="btn btn-primary btn-inline pull-right">View Diff</a>
+
+### Fixed
+ * Minor refactor to prevent the fix introduced in 2.7.4 from raising
+   a deprecation warning on latest RSpec.
+
+## 2.7.4
+
+<a href="https://github.com/rodjek/rspec-puppet/compare/v2.7.3...v2.7.4"
+class="btn btn-primary btn-inline pull-right">View Diff</a>
+
+### Fixed
+ * Fix the resource coverage test so that rspec will exit non-zero if the
+   desired coverage is not met.
+
+## 2.7.3
+
+<a href="https://github.com/rodjek/rspec-puppet/compare/v2.7.2...v2.7.3"
+class="btn btn-primary btn-inline pull-right">View Diff</a>
+
+### Fixed
+ * Puppet 6 deferred functions are now evaluated and resolved as part of the
+   catalogue compilation process.
+ * If running with parallel\_tests, the resources that are filtered out of the
+   resource coverage report are now taken into account when merging the final
+   report, fixing false negative results that can occur.
+
 ## 2.7.2
 
 <a href="https://github.com/rodjek/rspec-puppet/compare/v2.7.1...v2.7.2"

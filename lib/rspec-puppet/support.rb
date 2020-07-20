@@ -1,9 +1,12 @@
 require 'rspec-puppet/cache'
 require 'rspec-puppet/adapters'
 require 'rspec-puppet/raw_string'
+require 'rspec-puppet/sensitive'
 
 module RSpec::Puppet
   module Support
+    include GenericMatchers
+
     @@cache = RSpec::Puppet::Cache.new
     @@fixture_hiera_configs = Hash.new { |h, k| h[k] = nil }
 
@@ -138,13 +141,18 @@ module RSpec::Puppet
     end
 
     def site_pp_str
-      site_pp_str = ''
-      filepath = adapter.manifest
+      return '' unless (path = adapter.manifest)
 
-      if (!filepath.nil?) && File.file?(filepath)
-        site_pp_str = File.open(filepath).read
+      if File.file?(path)
+        File.read(path)
+      elsif File.directory?(path)
+        # Read and concatenate all .pp files.
+        Dir[File.join(path, '*.pp')].sort.map do |f|
+          File.read(f)
+        end.join("\n")
+      else
+        ''
       end
-      site_pp_str
     end
 
     def test_manifest(type, opts = {})
@@ -228,10 +236,11 @@ module RSpec::Puppet
       }
 
       node_facts = {
-        'hostname'      => node.split('.').first,
-        'fqdn'          => node,
-        'domain'        => node.split('.', 2).last,
-        'clientcert'    => node,
+        'hostname'   => node.split('.').first,
+        'fqdn'       => node,
+        'domain'     => node.split('.', 2).last,
+        'clientcert' => node,
+        'ipaddress6' => 'FE80:0000:0000:0000:AAAA:AAAA:AAAA',
       }
 
       networking_facts = {
@@ -441,8 +450,7 @@ module RSpec::Puppet
     end
 
     def escape_special_chars(string)
-      string.gsub!(/\$/, "\\$")
-      string
+      string.gsub(/\$/, "\\$")
     end
 
     def rspec_compatibility
@@ -478,6 +486,14 @@ module RSpec::Puppet
     # @return [RSpec::Puppet::RawString] return a new RawString with the type/title populated correctly
     def ref(type, title)
       return RSpec::Puppet::RawString.new("#{type}['#{title}']")
+    end
+
+    # Helper to return value wrapped in Sensitive type.
+    #
+    # @param [Object] value to wrap
+    # @return [RSpec::Puppet::Sensitive] a new Sensitive wrapper with the new value
+    def sensitive(value)
+      return RSpec::Puppet::Sensitive.new(value)
     end
 
     # @!attribute [r] adapter

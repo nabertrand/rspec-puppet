@@ -1,9 +1,12 @@
 require 'rspec-puppet/cache'
 require 'rspec-puppet/adapters'
 require 'rspec-puppet/raw_string'
+require 'rspec-puppet/sensitive'
 
 module RSpec::Puppet
   module Support
+    include GenericMatchers
+
     @@cache = RSpec::Puppet::Cache.new
     @@fixture_hiera_configs = Hash.new { |h, k| h[k] = nil }
 
@@ -94,9 +97,20 @@ module RSpec::Puppet
         ].map { |setting| RSpec.configuration.send(setting) }
 
         build_facts = facts_hash(node_name)
-        catalogue = build_catalog(node_name, build_facts, trusted_facts_hash(node_name), hiera_config_value,
-                                  build_code(type, manifest_opts), exported, node_params_hash, hiera_data_value,
-                                  rspec_config_values)
+        catalogue = build_catalog(
+          nodename: node_name,
+          facts_val: build_facts,
+          trusted_facts_val: trusted_facts_hash(node_name),
+          hiera_config_val: hiera_config_value,
+          code: build_code(type, manifest_opts),
+          exported: exported,
+          node_params: node_params_hash,
+          trusted_external_data: trusted_external_data_hash,
+          ignored_cache_params: {
+            hiera_data_value: hiera_data_value,
+            rspec_config_values: rspec_config_values,
+          },
+        )
 
         test_module = type == :host ? nil : class_name.split('::').first
         if type == :define
@@ -138,13 +152,18 @@ module RSpec::Puppet
     end
 
     def site_pp_str
-      site_pp_str = ''
-      filepath = adapter.manifest
+      return '' unless (path = adapter.manifest)
 
-      if (!filepath.nil?) && File.file?(filepath)
-        site_pp_str = File.open(filepath).read
+      if File.file?(path)
+        File.read(path)
+      elsif File.directory?(path)
+        # Read and concatenate all .pp files.
+        Dir[File.join(path, '*.pp')].sort.map do |f|
+          File.read(f)
+        end.join("\n")
+      else
+        ''
       end
-      site_pp_str
     end
 
     def test_manifest(type, opts = {})
@@ -228,10 +247,11 @@ module RSpec::Puppet
       }
 
       node_facts = {
-        'hostname'      => node.split('.').first,
-        'fqdn'          => node,
-        'domain'        => node.split('.', 2).last,
-        'clientcert'    => node,
+        'hostname'   => node.split('.').first,
+        'fqdn'       => node,
+        'domain'     => node.split('.', 2).last,
+        'clientcert' => node,
+        'ipaddress6' => 'FE80:0000:0000:0000:AAAA:AAAA:AAAA',
       }
 
       networking_facts = {
@@ -292,6 +312,19 @@ module RSpec::Puppet
 
       extensions.merge!(munge_facts(trusted_facts)) if self.respond_to?(:trusted_facts)
       extensions
+    end
+
+    def trusted_external_data_hash
+      return {} unless Puppet::Util::Package.versioncmp(Puppet.version, '6.14.0') >= 0
+
+      external_data = {}
+
+      if RSpec.configuration.default_trusted_external_data.any?
+        external_data.merge!(munge_facts(RSpec.configuration.default_trusted_external_data))
+      end
+
+      external_data.merge!(munge_facts(trusted_external_data)) if self.respond_to?(:trusted_external_data)
+      external_data
     end
 
     def server_facts_hash
@@ -381,6 +414,29 @@ module RSpec::Puppet
     end
 
     def build_catalog_without_cache(nodename, facts_val, trusted_facts_val, hiera_config_val, code, exported, node_params, *_)
+      build_catalog_without_cache_v2({
+        nodename: nodename,
+        facts_val: facts_val,
+        trusted_facts_val: trusted_facts_val,
+        hiera_config_val: hiera_config_val,
+        code: code,
+        exported: exported,
+        node_params: node_params,
+        trusted_external: {},
+      })
+    end
+
+    def build_catalog_without_cache_v2(
+      nodename: nil,
+      facts_val: nil,
+      trusted_facts_val: nil,
+      hiera_config_val: nil,
+      code: nil,
+      exported: nil,
+      node_params: nil,
+      trusted_external_data: nil,
+      ignored_cache_params: {}
+    )
 
       # If we're going to rebuild the catalog, we should clear the cached instance
       # of Hiera that Puppet is using.  This opens the possibility of the catalog
@@ -402,10 +458,14 @@ module RSpec::Puppet
 
       node_obj = Puppet::Node.new(nodename, { :parameters => node_params, :facts => node_facts })
 
+      trusted_info = ['remote', nodename, trusted_facts_val]
+      if Puppet::Util::Package.versioncmp(Puppet.version, '6.14.0') >= 0
+        trusted_info.push(trusted_external_data)
+      end
       if Puppet::Util::Package.versioncmp(Puppet.version, '4.3.0') >= 0
         Puppet.push_context(
           {
-            :trusted_information => Puppet::Context::TrustedInformation.new('remote', nodename, trusted_facts_val)
+            :trusted_information => Puppet::Context::TrustedInformation.new(*trusted_info)
           },
           "Context for spec trusted hash"
         )
@@ -424,7 +484,11 @@ module RSpec::Puppet
 
     def build_catalog(*args)
       @@cache.get(*args) do |*args|
-        build_catalog_without_cache(*args)
+        if args.length == 1 && args.first.is_a?(Hash)
+          build_catalog_without_cache_v2(args.first)
+        else
+          build_catalog_without_cache(*args)
+        end
       end
     end
 
@@ -441,8 +505,7 @@ module RSpec::Puppet
     end
 
     def escape_special_chars(string)
-      string.gsub!(/\$/, "\\$")
-      string
+      string.gsub(/\$/, "\\$")
     end
 
     def rspec_compatibility
@@ -478,6 +541,14 @@ module RSpec::Puppet
     # @return [RSpec::Puppet::RawString] return a new RawString with the type/title populated correctly
     def ref(type, title)
       return RSpec::Puppet::RawString.new("#{type}['#{title}']")
+    end
+
+    # Helper to return value wrapped in Sensitive type.
+    #
+    # @param [Object] value to wrap
+    # @return [RSpec::Puppet::Sensitive] a new Sensitive wrapper with the new value
+    def sensitive(value)
+      return RSpec::Puppet::Sensitive.new(value)
     end
 
     # @!attribute [r] adapter

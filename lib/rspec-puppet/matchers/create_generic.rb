@@ -89,6 +89,11 @@ module RSpec::Puppet
         else
           RSpec::Puppet::Coverage.cover!(resource)
           rsrc_hsh = resource.to_hash
+          if resource.respond_to?(:sensitive_parameters)
+            resource.sensitive_parameters.each do |s_param|
+              rsrc_hsh[s_param] = ::Puppet::Pops::Types::PSensitiveType::Sensitive.new(rsrc_hsh[s_param])
+            end
+          end
 
           if resource.builtin_type?
             namevar = resource.resource_type.key_attributes.first.to_s
@@ -174,6 +179,14 @@ module RSpec::Puppet
       end
 
       def diffable?
+        true
+      end
+
+      def supports_block_expectations
+        true
+      end
+
+      def supports_value_expectations
         true
       end
 

@@ -44,7 +44,7 @@ A hash of default facts that should be used for all the tests.
 **Default:** `/dev/null`<br />
 **Puppet Version(s):** 3.x, 4.x, 5.x
 
-The path to your `hiera.yaml` file (if used).
+The path to the Hiera global layer config `hiera.yaml` file (if used).
 
 ### default\_node\_params
 **Type:** Hash<br />
@@ -84,6 +84,45 @@ module to `spec/fixtures/<module name>` at the beginning of the test run.
 
 Configures rspec-puppet to use the `$server_facts` hash when compiling the
 catalogues.
+
+## Advanced Hiera configuration
+These settings allow customizing the behavior of the Hiera module layer during testing.
+
+See the [Puppet documentation](https://puppet.com/docs/puppet/latest/hiera_intro.html) for more information
+on the different Hiera layers.
+
+### disable_module_hiera
+**Type:** Boolean<br />
+**Default:** `false`<br />
+**Puppet Version(s):** >= 4.9, 5.x, 6.x
+
+Enabling this will prevent Puppet from using module-layer Hiera data entirely.
+This includes the module being tested as well as any fixture modules. The end effect
+is that only Hiera data from the global `:hiera_config` parameter will be used.
+
+### fixture_hiera_configs
+**Type:** Hash<br />
+**Default:** `{}`<br />
+**Puppet Version(s):** >= 4.9, 5.x, 6.x
+
+A hash of module names and their respective module-layer Hiera config file paths.
+This can be used to override the path to the module-layer hiera.yaml.
+
+### use_fixture_spec_hiera
+**Type:** Boolean<br />
+**Default:** `false`<br />
+**Puppet Version(s):** >= 4.9, 5.x, 6.x
+
+Enabling this will prevent Puppet from using the module-layer Hiera config file
+and instead search the module spec folder for a file named hiera.yaml.
+
+### fallback_to_default_hiera
+**Type:** Boolean<br />
+**Default:** `true`<br />
+**Puppet Version(s):** >= 4.9, 5.x, 6.x
+
+A hash of module names and their respective module-layer Hiera config file paths.
+This can be used to override the path to the module-layer hiera.yaml.
 
 ## Optional overrides
 Only set these values if you need to. rspec-puppet is generally pretty good at

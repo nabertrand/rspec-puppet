@@ -11,3 +11,5 @@ incremental: false
 gist:
     noscript: false
 markdown: kramdown
+
+theme: jekyll-theme-cayman
